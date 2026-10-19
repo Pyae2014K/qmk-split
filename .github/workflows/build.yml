@@ -39,4 +39,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: production/split.uf2
+          path: production/firmware.uf2
