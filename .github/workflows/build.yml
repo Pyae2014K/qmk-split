@@ -1,36 +1,42 @@
-# This is a basic workflow to help you get started with Actions
+name: Build QMK Firmware
 
-name: CI
+on: [push]
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Install QMK
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi avr-libc gcc-avr avrdude dfu-programmer dfu-util dos2unix make
+          pip install qmk --break-system-packages
+          qmk setup -H ~/qmk_firmware -y
+
+      - name: Copy keyboard files
+        run: |
+          ls $GITHUB_WORKSPACE
+          cp -r $GITHUB_WORKSPACE/pyaes_split ~/qmk_firmware/keyboards/
+          ls ~/qmk_firmware/keyboards/ | grep pyaes_split
+
+      - name: Compile
+        run: |
+          cd ~/qmk_firmware
+          qmk compile -kb pyaes_split -km default 2>&1
+
+      - name: Find firmware
+        run: find /home/runner -name "*.uf2" 2>/dev/null
+
+      - name: Prepare production folder
+        run: |
+          mkdir -p production
+          cp $(find /home/runner -name "*.uf2" | head -n 1) production/firmware.uf2
+          ls production/
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: production/split.uf2
